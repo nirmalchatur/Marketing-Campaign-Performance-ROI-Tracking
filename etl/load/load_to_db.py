@@ -1,24 +1,27 @@
-import psycopg2
+from pymongo import MongoClient
+import pandas as pd
 import os
 from dotenv import load_dotenv
 
-load_dotenv("config/config.env")
+load_dotenv()
 
-def load_data(df):
-    conn = psycopg2.connect(
-        dbname=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        host=os.getenv("DB_HOST"),
-        port=os.getenv("DB_PORT")
-    )
-    cur = conn.cursor()
-    for _, row in df.iterrows():
-        cur.execute("""
-            INSERT INTO campaign_metrics (campaign_id, platform, impressions, clicks, cost, conversions, roi, date)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_DATE)
-        """, (row['campaign_id'], row['platform'], row['impressions'], row['clicks'],
-              row['cost'], row['conversions'], row['roi']))
-    conn.commit()
-    cur.close()
-    conn.close()
+def get_mongo_client():
+    uri = os.getenv("MONGO_URI")
+    return MongoClient(uri)
+
+def load_to_mongo(df: pd.DataFrame):
+    client = get_mongo_client()
+    db_name = os.getenv("MONGO_DB", "marketing_db")
+    coll_name = os.getenv("MONGO_COLLECTION", "campaign_metrics")
+
+    db = client[db_name]
+    collection = db[coll_name]
+
+    # Optional: Drop existing collection to avoid duplicates
+    collection.drop()
+
+    # Insert documents (convert DataFrame to dict)
+    collection.insert_many(df.to_dict(orient="records"))
+
+    print(f"✅ Data loaded into MongoDB collection: {coll_name}")
+    client.close()

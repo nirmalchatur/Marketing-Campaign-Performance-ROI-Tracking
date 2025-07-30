@@ -7,24 +7,21 @@ def fetch_google_ads_data():
 
     query = """
         SELECT campaign.id, campaign.name, metrics.clicks, metrics.impressions,
-               metrics.average_cpc, metrics.conversions, metrics.cost_micros
+               metrics.average_cpc, metrics.cost_micros, metrics.conversions
         FROM campaign
         WHERE segments.date DURING LAST_7_DAYS
     """
-
     response = ga_service.search(customer_id="YOUR_CUSTOMER_ID", query=query)
-    rows = []
+    
+    data = []
     for row in response:
-        campaign = row.campaign
-        metrics = row.metrics
-        rows.append({
+        data.append({
             "platform": "GoogleAds",
-            "campaign_id": campaign.id,
-            "name": campaign.name,
-            "clicks": metrics.clicks,
-            "impressions": metrics.impressions,
-            "cpc": metrics.average_cpc.micros / 1e6,
-            "cost": metrics.cost_micros / 1e6,
-            "conversions": metrics.conversions,
+            "campaign_id": row.campaign.id,
+            "name": row.campaign.name,
+            "clicks": row.metrics.clicks,
+            "impressions": row.metrics.impressions,
+            "cost": row.metrics.cost_micros / 1e6,
+            "conversions": row.metrics.conversions,
         })
-    return rows
+    return pd.DataFrame(data)
