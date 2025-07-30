@@ -1,0 +1,26 @@
+marketing-roi-tracker/
+├── etl/
+│   ├── extract/
+│   │   ├── google_ads.py
+│   │   ├── facebook_ads.py
+│   │   └── mailchimp.py
+│   ├── transform/
+│   │   └── normalize_data.py
+│   └── load/
+│       └── load_to_db.py
+├── dashboards/
+│   └── metabase_dashboard_config.json
+├── alerts/
+│   ├── detect_anomalies.py
+│   └── send_alerts.py
+├── orchestration/
+│   └── daily_pipeline.py
+├── config/
+│   └── config.env.example
+├── database/
+│   ├── schema.sql
+│   └── db_utils.py
+├── .env
+├── README.md
+├── requirements.txt
+└── run_all.sh
