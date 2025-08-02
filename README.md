@@ -1,16 +1,34 @@
-# Marketing Campaign Performance & ROI Tracker
+# 📊 Marketing Campaign Performance & ROI Tracking
 
-Track and analyze cross-platform marketing campaign performance, calculate ROI, and detect anomalies.
+## 🧩 Overview
+This project builds a real-time, multi-channel marketing performance tracking system using MongoDB, Python ETL, Metabase dashboards, and Slack alerting.
 
-## Features
-- Data ingestion from Google Ads, Facebook Ads, Mailchimp
-- ROI & KPI normalization
-- PostgreSQL/BigQuery backend
-- Metabase dashboard integration
-- Slack/email-based anomaly alerts
+## 🎯 Objectives
+- Automate data ingestion from ad platforms (sample simulated)
+- Normalize and store metrics in MongoDB
+- Create dynamic dashboards for KPIs (ROI, CTR, etc.)
+- Send alerts via Slack when anomalies occur
 
-## Setup Instructions
-1. Create `.env` from `config.env.example` and add API tokens
-2. Install dependencies: `pip install -r requirements.txt`
-3. Run DB schema: `psql -U postgres -d marketing_db -f database/schema.sql`
-4. Execute pipeline: `python orchestration/daily_pipeline.py`
+---
+
+## 🛠️ Tools Used
+- Python, Pandas
+- MongoDB Atlas (cloud)
+- Metabase (Docker)
+- Slack Webhook for Alerts
+
+---
+
+## 🧱 MongoDB Schema
+
+```json
+{
+  "platform": "GoogleAds",
+  "campaign_id": "GA123",
+  "campaign_name": "Brand Awareness",
+  "clicks": 120,
+  "impressions": 3000,
+  "cost": 150.0,
+  "conversions": 10,
+  "date": "2025-07-28"
+}

@@ -1,0 +1,13 @@
+platform,campaign_id,campaign_name,clicks,impressions,cost,conversions,date
+GoogleAds,GA123,Brand Awareness,120,3000,150.0,10,2025-07-28
+FacebookAds,FB456,Retargeting,80,2500,100.0,6,2025-07-28
+Mailchimp,MC789,Email Blast,50,1800,70.0,4,2025-07-28
+GoogleAds,GA123,Brand Awareness,130,3200,160.0,12,2025-07-29
+FacebookAds,FB456,Retargeting,90,2700,110.0,7,2025-07-29
+Mailchimp,MC789,Email Blast,60,2000,75.0,5,2025-07-29
+GoogleAds,GA123,Brand Awareness,125,3100,155.0,11,2025-07-30
+FacebookAds,FB456,Retargeting,85,2600,105.0,6,2025-07-30
+Mailchimp,MC789,Email Blast,55,1900,72.0,4,2025-07-30
+GoogleAds,GA123,Brand Awareness,135,3300,165.0,13,2025-07-31
+FacebookAds,FB456,Retargeting,88,2650,108.0,7,2025-07-31
+Mailchimp,MC789,Email Blast,58,1950,74.0,5,2025-07-31
