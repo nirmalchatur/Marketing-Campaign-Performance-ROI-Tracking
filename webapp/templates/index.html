@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Campaign Anomaly Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .anomaly-count {
+            background-color: var(--danger);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            margin-left: 10px;
+        }
+        .anomaly-number {
+            font-weight: bold;
+            color: var(--danger);
+            margin-right: 5px;
+        }
+        .clear-buttons {
+            display: flex;
+            gap: 10px;
+            margin-left: auto;
+        }
+        .clear-db-btn {
+            background: linear-gradient(to right, #ff6b6b, #ff8e8e) !important;
+        }
+        .clear-db-btn:hover {
+            background: linear-gradient(to right, #ff5252, #ff6b6b) !important;
+        }
+        .refresh-message {
+            background-color: #e9f7ef;
+            border-left: 4px solid #2ecc71;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="card">
+            <h1>📢 Marketing Campaign Alerts Dashboard</h1>
+            <a href="{{ url_for('scrape') }}">Scraper</a>
+
+            <p>Welcome to the Campaign Anomaly Dashboard! Here you can view and manage marketing campaigns, detect anomalies, and visualize campaign performance.</p>
+            <p>Use the filters below to narrow down your campaigns by date range, or upload a new CSV file to update the campaign data.</p>
+            <p>Note: Anomalies are campaigns with ROI less than 10%.</p>
+            <p>Current Date: {{ current_date }}</p> 
+            <div class="filter-section">
+                <form class="date-filter-form" action="/" method="get">
+                    <div class="form-group">
+                        <label for="start">Start Date:</label>
+                        <input type="date" name="start" id="start" value="{{ request.args.get('start', '') }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="end">End Date:</label>
+                        <input type="date" name="end" id="end" value="{{ request.args.get('end', '') }}" required>
+                    </div>
+                    <button type="submit">Filter</button>
+                    {% if request.args.get('start') %}
+                    <a href="/" class="clear-filter">Clear Filter</a>
+                    {% endif %}
+                </form>
+
+                <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+                    <label for="file">Upload New CSV:</label>
+                    <input type="file" name="file" id="file" required>
+                    <button type="submit">Upload</button>
+                </form>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert-message alert-{{ category }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% if get_flashed_messages() %}
+        <div class="refresh-message">
+            Page will refresh in <span id="countdown">3</span> seconds to show updated data...
+        </div>
+        {% endif %}
+
+        <div class="card">
+            <div class="anomalies-header">
+                <h2>🚨 Detected Anomalies <span class="anomaly-count">{{ anomalies|length if anomalies else 0 }}</span></h2>
+                {% if anomalies or campaigns %}
+                <div class="clear-buttons">
+                    {% if anomalies %}
+                    <form id="clearAnomaliesForm" action="/clear_anomalies" method="post" class="clear-anomalies-form">
+                        <button type="button" onclick="confirmClearAnomalies()" class="clear-btn">
+                            <span class="icon">🗑️</span> Clear Anomalies
+                        </button>
+                    </form>
+                    {% endif %}
+                    <form id="clearDatabaseForm" action="/clear_database" method="post" class="clear-db-form">
+                        <button type="button" onclick="confirmClearDatabase()" class="clear-btn clear-db-btn">
+                            <span class="icon">💣</span> Clear All Data
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+            
+            {% if anomalies %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Platform</th>
+                        <th>Campaign ID</th>
+                        <th>Name</th>
+                        <th>ROI (%)</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in anomalies %}
+                    <tr>
+                        <td class="anomaly-number">{{ loop.index }}</td>
+                        <td>{{ row["platform"] }}</td>
+                        <td>{{ row["campaign_id"] }}</td>
+                        <td>{{ row["name"] }}</td>
+                        <td>
+                            {% if "ROI (%)" in row %}
+                                {{ "%.2f"|format(row["ROI (%)"]) }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>{{ row["date"] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="alert-message">No ROI anomalies found.</div>
+            {% endif %}
+        </div>
+
+        <div class="chart-container">
+            <h2>📊 Cost by Campaign</h2>
+            <div class="chart-wrapper">
+                <canvas id="costChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h2>📈 ROI by Campaign</h2>
+            <div class="chart-wrapper">
+                <canvas id="roiChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global chart references
+        let costChart = null;
+        let roiChart = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            
+            // Auto-refresh countdown
+            const countdownEl = document.getElementById('countdown');
+            if (countdownEl) {
+                let count = 3;
+                const timer = setInterval(() => {
+                    count--;
+                    countdownEl.textContent = count;
+                    if (count <= 0) {
+                        clearInterval(timer);
+                        window.location.href = "{{ url_for('index') }}";
+                    }
+                }, 1000);
+            }
+        });
+
+        function initializeCharts() {
+            const labels = {{ chart_data.labels | tojson | safe }};
+            const costData = {{ chart_data.costs | tojson | safe }};
+            const roiData = {{ chart_data.rois | tojson | safe }};
+
+            // Destroy existing charts
+            if (costChart) costChart.destroy();
+            if (roiChart) roiChart.destroy();
+
+            // Cost Chart
+            const costCtx = document.getElementById('costChart').getContext('2d');
+            costChart = new Chart(costCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Cost (₹)',
+                        data: costData,
+                        backgroundColor: 'rgba(67, 97, 238, 0.7)',
+                        borderColor: 'rgba(67, 97, 238, 1)',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleFont: {
+                                size: 14
+                            },
+                            bodyFont: {
+                                size: 12
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Cost (₹)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Campaigns'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // ROI Chart
+            const roiCtx = document.getElementById('roiChart').getContext('2d');
+            roiChart = new Chart(roiCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'ROI (%)',
+                        data: roiData,
+                        fill: false,
+                        borderColor: 'rgba(247, 37, 133, 1)',
+                        backgroundColor: 'rgba(247, 37, 133, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.1,
+                        pointBackgroundColor: 'rgba(247, 37, 133, 1)',
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleFont: {
+                                size: 14
+                            },
+                            bodyFont: {
+                                size: 12
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'ROI (%)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Campaigns'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function confirmClearAnomalies() {
+            Swal.fire({
+                title: 'Clear All Anomalies?',
+                text: "This will remove all campaigns with ROI < 10%. This action cannot be undone!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#4361ee',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, clear them!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById('clearAnomaliesForm').submit();
+                }
+            });
+        }
+
+        function confirmClearDatabase() {
+            Swal.fire({
+                title: 'Clear Entire Database?',
+                text: "This will remove ALL campaign data. This cannot be undone!",
+                icon: 'error',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, clear everything!',
+                backdrop: `
+                    rgba(220,53,69,0.4)
+                    url("/images/nyan-cat.gif")
+                    left top
+                    no-repeat
+                `
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById('clearDatabaseForm').submit();
+                }
+            });
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            if (costChart) costChart.resize();
+            if (roiChart) roiChart.resize();
+        });
+    </script>
+</body>
+</html>

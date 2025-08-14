@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head><title>ROI Anomalies</title></head>
+<body>
+    <h1>⚠️ ROI Anomalies (ROI < 10%)</h1>
+    {% if anomalies %}
+    <table border="1">
+        <tr>
+            {% for key in anomalies[0].keys() %}
+            <th>{{ key }}</th>
+            {% endfor %}
+        </tr>
+        {% for row in anomalies %}
+        <tr>
+            {% for value in row.values() %}
+            <td>{{ value }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p>No anomalies found.</p>
+    {% endif %}
+</body>
+</html>
